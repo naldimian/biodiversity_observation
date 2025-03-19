@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "72470540924",
+    "project_id": "animal-identifier-4c361",
+    "storage_bucket": "animal-identifier-4c361.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:72470540924:android:5483428b1acb2e1fd10ff9",
+        "android_client_info": {
+          "package_name": "com.example.cubaankedua"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnFLKbTOPdIFVsbF1s5_NQJJ32r4azye0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
