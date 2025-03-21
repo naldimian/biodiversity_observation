@@ -13,8 +13,10 @@ class _HomePageState extends State<HomePage> {
 
   //firestore
   final FirestoreService firestoreService = FirestoreService();
-
-
+  //location controller
+  final TextEditingController locationController = TextEditingController();
+  //image url
+  String? uploadedImageUrl;
   //text controller
   final TextEditingController textController = TextEditingController();
 
@@ -30,15 +32,20 @@ class _HomePageState extends State<HomePage> {
             //button to save
             ElevatedButton(
                 onPressed: () {
-                  //add a new note
-                  if (docID == null){
-                    firestoreService.addObservation(textController.text);
+                  if (docID == null) {
+                    firestoreService.addObservation(textController.text, locationController.text, uploadedImageUrl);
+                  } else {
+                    firestoreService.updateObservation(docID, textController.text, locationController.text, uploadedImageUrl);
                   }
 
+                  //add a new note
+                  /*if (docID == null){
+                    firestoreService.addObservation(textController.text);
+                  }
                   //update existing observation
                   else{
                     firestoreService.updateObservation(docID, textController.text);
-                  }
+                  }*/
                   //clear text controller
                   textController.clear();
 

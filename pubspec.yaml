@@ -40,6 +40,9 @@ dependencies:
   cloud_firestore: ^5.6.5
   firebase_core: ^3.12.1
   firebase_crashlytics: ^4.3.4
+  geolocator: ^13.0.3
+  firebase_storage: ^12.4.4
+  exif: ^3.3.0
 
 dev_dependencies:
   flutter_test:
