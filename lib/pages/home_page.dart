@@ -647,13 +647,13 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           if (data['location'] != null)
                             IconButton(
-                              icon: const Icon(Icons.map, color: Colors.blue, size: 30),
+                              icon: const Icon(Icons.map, color: Colors.blue, size: 25),
                               onPressed: () {
                                 _openGoogleMaps(data['location']!);
                               },
                             ),
                           IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 30),
+                            icon: const Icon(Icons.delete, color: Colors.red, size: 25),
                             onPressed: () => firestoreService.deleteObservation(doc.id),
                           ),
                         ],
