@@ -127,581 +127,8 @@ class _HomePageState extends State<HomePage> {
 }
 */
 
-
-
+//before optimization
 /*
-//Latest code
-
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cubaankedua/services/firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:path/path.dart' as path;
-import 'package:exif/exif.dart';
-
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  final FirestoreService firestoreService = FirestoreService();
-  final TextEditingController textController = TextEditingController();
-  final TextEditingController locationController = TextEditingController();
-  File? _image;
-  String? imageUrl;
-
-  //try new mthod
-  /*
-  Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-    } else {
-      print("No image selected.");
-    }
-  }
-
-
-  Future<void> _captureImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-    }
-  }
-*/
-
-
-
-  Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      File imageFile = File(pickedFile.path);
-      _extractLocationFromImage(imageFile); // Extract GPS data
-      setState(() {
-        _image = imageFile;
-      });
-    } else {
-      print("No image selected.");
-    }
-  }
-
-  Future<void> _captureImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
-    if (pickedFile != null) {
-      File imageFile = File(pickedFile.path);
-      _extractLocationFromImage(imageFile); // Extract GPS data
-      setState(() {
-        _image = imageFile;
-      });
-    }
-  }
-
-
-
-  Future<void> _extractLocationFromImage(File imageFile) async {
-    final bytes = await imageFile.readAsBytes();
-    final data = await readExifFromBytes(bytes);
-
-    if (data.containsKey('GPS GPSLatitude') && data.containsKey('GPS GPSLongitude')) {
-      final latValues = data['GPS GPSLatitude']!.values.toList();
-      final lonValues = data['GPS GPSLongitude']!.values.toList();
-
-      final latitude = _convertExifGpsToDecimal(latValues, data['GPS GPSLatitudeRef']?.printable);
-      final longitude = _convertExifGpsToDecimal(lonValues, data['GPS GPSLongitudeRef']?.printable);
-
-      setState(() {
-        locationController.text = "$latitude, $longitude";
-      });
-
-      print("Extracted GPS: $latitude, $longitude");
-    } else {
-      print("No GPS data found in image.");
-    }
-  }
-
-// Convert EXIF GPS format to decimal degrees
-  double _convertExifGpsToDecimal(List<dynamic> values, String? ref) {
-    if (values.length != 3) return 0.0; // Ensure there are 3 values (degrees, minutes, seconds)
-
-    double degrees = values[0].toDouble();
-    double minutes = values[1].toDouble();
-    double seconds = values[2].toDouble();
-
-    double decimal = degrees + (minutes / 60) + (seconds / 3600);
-
-    // Adjust for N/S or E/W reference
-    if (ref == 'S' || ref == 'W') {
-      decimal = -decimal;
-    }
-
-    return decimal;
-  }
-
-
-  Future<void> _getCurrentLocation() async {
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    setState(() {
-      locationController.text = "${position.latitude}, ${position.longitude}";
-    });
-  }
-
-  Future<String?> _uploadImage(File image) async {
-    try {
-      print("Uploading image...");
-
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('images')
-          .child('observations/${DateTime.now().millisecondsSinceEpoch}.jpg');
-
-      UploadTask uploadTask = ref.putFile(image);
-      TaskSnapshot snapshot = await uploadTask;
-
-      String downloadUrl = await snapshot.ref.getDownloadURL();
-      print("Image uploaded: $downloadUrl");  // ✅ Debugging
-
-      return downloadUrl;
-    } catch (e) {
-      print("Error uploading image: $e");
-      return null;
-    }
-  }
-
-
-
-  void openNoteBox({String? docID, String? existingText, String? existingLocation, String? existingImageUrl}) {
-    if (existingText != null) {
-      textController.text = existingText;
-    } else {
-      textController.clear();
-    }
-
-    if (existingLocation != null) {
-      locationController.text = existingLocation;
-    } else {
-      locationController.clear();
-    }
-
-    _image = null;
-    imageUrl = existingImageUrl;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(docID == null ? "Add Observation" : "Edit Observation"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: textController,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: "Enter your observation",
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: locationController,
-              decoration: InputDecoration(
-                border: const OutlineInputBorder(),
-                hintText: "Enter or fetch location",
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.location_on),
-                  onPressed: _getCurrentLocation,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.photo_library),
-                  onPressed: _pickImage,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.camera_alt),
-                  onPressed: _captureImage,
-                ),
-              ],
-            ),
-            if (_image != null) ...[
-              const SizedBox(height: 10),
-              Image.file(_image!, height: 100),
-            ] else if (imageUrl != null) ...[
-              const SizedBox(height: 10),
-              Image.network(imageUrl!, height: 100),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              String? finalImageUrl = imageUrl;
-
-              if (_image != null) {
-                finalImageUrl = await _uploadImage(_image!);
-              }
-
-              if (docID == null) {
-                firestoreService.addObservation(
-                    textController.text,
-                    locationController.text,
-                    finalImageUrl  // ✅ Make sure this is not null
-                );
-              } else {
-                firestoreService.updateObservation(
-                    docID,
-                    textController.text,
-                    locationController.text,
-                    finalImageUrl
-                );
-              }
-
-              textController.clear();
-              locationController.clear();
-              imageUrl = null;
-              Navigator.pop(context);
-            }
-,
-            child: const Text("Save"),
-          )
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Observations"),
-        backgroundColor: Colors.blue,
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => openNoteBox(),
-        child: const Icon(Icons.add),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: firestoreService.getObservationsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            List observationsList = snapshot.data!.docs;
-
-            return ListView.builder(
-              itemCount: observationsList.length,
-              padding: const EdgeInsets.all(8),
-              itemBuilder: (context, index) {
-                DocumentSnapshot document = observationsList[index];
-                String docID = document.id;
-                Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-                String observationText = data['name'] ?? "No data available";
-                String observationLocation = data['location'] ?? "No location available";
-                String? observationImage = data['image'];
-//try
-               /* return Card(
-                  child: ListTile(
-                    leading: data['image'] != null
-                        ? Image.network(
-                      data['image'],
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return CircularProgressIndicator();
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(Icons.image_not_supported, size: 50);
-                      },
-                    )
-                        : Icon(Icons.image, size: 50),  // Show placeholder if no image
-
-                    title: Text(data['name'] ?? "No Name"),
-                    subtitle: Text(data['location'] ?? "No Location"),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => firestoreService.deleteObservation(docID),
-                    ),
-                  ),
-                );*/
-                return Card(
-                  child: ListTile(
-                    leading: observationImage != null
-                        ? Image.network(
-                      observationImage,
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return CircularProgressIndicator();
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.image_not_supported, size: 50);
-                      },
-                    )
-                        : const Icon(Icons.image, size: 50),  // Placeholder if no image
-
-                    title: Text(observationText),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(observationLocation), // Display location from Firestore
-                        if (observationImage != null) Text("📍 Image GPS: $observationLocation"),
-                      ],
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => firestoreService.deleteObservation(docID),
-                    ),
-                  ),
-                );
-
-
-              },
-            );
-          } else {
-            return const Center(child: Text("No observations available."));
-          }
-        },
-      ),
-    );
-  }
-}
-*/
-
-//not working
-
-/*
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cubaankedua/services/firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:exif/exif.dart';
-
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  final FirestoreService firestoreService = FirestoreService();
-  final TextEditingController textController = TextEditingController();
-  final TextEditingController locationController = TextEditingController();
-
-  File? _image;
-  String? imageUrl;
-  String? imageLocation;
-
-  Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      File imageFile = File(pickedFile.path);
-      _extractLocationFromImage(imageFile);
-      setState(() {
-        _image = imageFile;
-      });
-    }
-  }
-
-  Future<void> _captureImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
-    if (pickedFile != null) {
-      File imageFile = File(pickedFile.path);
-      _extractLocationFromImage(imageFile);
-      setState(() {
-        _image = imageFile;
-      });
-    }
-  }
-
-  Future<void> _extractLocationFromImage(File imageFile) async {
-    final bytes = await imageFile.readAsBytes();
-    final data = await readExifFromBytes(bytes);
-
-    if (data.containsKey('GPS GPSLatitude') && data.containsKey('GPS GPSLongitude')) {
-      final latValues = data['GPS GPSLatitude']!.values.toList();
-      final lonValues = data['GPS GPSLongitude']!.values.toList();
-
-      final latitude = _convertExifGpsToDecimal(latValues, data['GPS GPSLatitudeRef']?.printable);
-      final longitude = _convertExifGpsToDecimal(lonValues, data['GPS GPSLongitudeRef']?.printable);
-
-      setState(() {
-        imageLocation = "$latitude, $longitude";
-      });
-    } else {
-      setState(() {
-        imageLocation = null;
-      });
-    }
-  }
-
-  double _convertExifGpsToDecimal(List<dynamic> values, String? ref) {
-    if (values.length != 3) return 0.0;
-    double degrees = values[0].toDouble();
-    double minutes = values[1].toDouble();
-    double seconds = values[2].toDouble();
-    double decimal = degrees + (minutes / 60) + (seconds / 3600);
-    if (ref == 'S' || ref == 'W') decimal = -decimal;
-    return decimal;
-  }
-
-  Future<String?> _uploadImage(File image) async {
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('images')
-          .child('observations/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      UploadTask uploadTask = ref.putFile(image);
-      TaskSnapshot snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
-    } catch (e) {
-      return null;
-    }
-  }
-
-  //just added
-  @override
-  void dispose() {
-    textController.dispose();
-    locationController.dispose(); // Prevent memory leaks
-    super.dispose();
-  }
-
-
-  void openNoteBox({String? docID, String? existingText, String? existingImageUrl}) {
-    textController.text = existingText ?? "";
-    _image = null;
-    imageUrl = existingImageUrl;
-    imageLocation = null;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text(docID == null ? "Add Observation" : "Edit Observation"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: textController,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: "Enter your observation",
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(icon: const Icon(Icons.photo_library), onPressed: _pickImage),
-                    IconButton(icon: const Icon(Icons.camera_alt), onPressed: _captureImage),
-                  ],
-                ),
-                if (_image != null) Image.file(_image!, height: 100),
-                if (imageUrl != null) Image.network(imageUrl!, height: 100),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-              ElevatedButton(
-                onPressed: (textController.text.isNotEmpty && _image != null)
-                    ? () async {
-                  String? finalImageUrl = await _uploadImage(_image!);
-                  if (docID == null) {
-                    firestoreService.addObservation(
-                        textController.text,
-                        locationController.text,
-                        finalImageUrl ?? "" // Ensure a non-null string is passed
-                    );
-
-                  } else {
-                    firestoreService.updateObservation(
-                        docID,
-                        textController.text,
-                        locationController.text,
-                        finalImageUrl ?? "" // Ensure a non-null string is passed
-                    );
-                  }
-                  textController.clear();
-                  imageUrl = null;
-                  Navigator.pop(context);
-                }
-                    : null,
-                child: const Text("Save"),
-              )
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Observations"),
-        backgroundColor: Colors.blue,
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => openNoteBox(),
-        child: const Icon(Icons.add),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: firestoreService.getObservationsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            List observationsList = snapshot.data!.docs;
-            return ListView.builder(
-              itemCount: observationsList.length,
-              itemBuilder: (context, index) {
-                DocumentSnapshot document = observationsList[index];
-                String docID = document.id;
-                Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-                return Card(
-                  child: ListTile(
-                    leading: data['image'] != null ? Image.network(data['image'], width: 50, height: 50, fit: BoxFit.cover) : const Icon(Icons.image),
-                    title: Text(data['name'] ?? "No Name"),
-                    subtitle: Text(data['location'] ?? "No location available"),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => firestoreService.deleteObservation(docID),
-                    ),
-                  ),
-                );
-              },
-            );
-          } else {
-            return const Center(child: Text("No observations available."));
-          }
-        },
-      ),
-    );
-  }
-}*/
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cubaankedua/services/firestore.dart';
 import 'package:flutter/material.dart';
@@ -815,26 +242,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-  //try
-  /*
-  void _openGoogleMaps(String location) async {
-    try {
-      List<String> latLng = location.split(',');
-      double latitude = double.parse(latLng[0].trim());
-      double longitude = double.parse(latLng[1].trim());
-
-      final Uri googleMapsUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$latitude,$longitude");
-
-      if (!await launchUrl(googleMapsUri, mode: LaunchMode.externalApplication)) {
-        throw 'Could not launch Google Maps';
-      }
-    } catch (e) {
-      debugPrint("Error opening Google Maps: $e");
-    }
-  }*/
-
-
 
   void openNoteBox({String? docID, String? existingText, String? existingImageUrl, String? existingLocation}) {
     textController.text = existingText ?? "";
@@ -964,19 +371,7 @@ class _HomePageState extends State<HomePage> {
                 DocumentSnapshot document = observationsList[index];
                 String docID = document.id;
                 Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-                //previous
-                /*
-                return Card(
-                  child: ListTile(
-                    leading: data['image'] != null ? Image.network(data['image'], width: 50, height: 50, fit: BoxFit.cover) : const Icon(Icons.image),
-                    title: Text(data['name'] ?? "No Name"),
-                    subtitle: Text(data['location'] ?? "No location available"),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => firestoreService.deleteObservation(docID),
-                    ),
-                  ),
-                ); */
+
                 return Card(
                   child: ListTile(
                     leading: data['image'] != null
@@ -1008,6 +403,267 @@ class _HomePageState extends State<HomePage> {
           } else {
             return const Center(child: Text("No observations available."));
           }
+        },
+      ),
+    );
+  }
+}
+*/
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cubaankedua/services/firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:exif/exif.dart';
+import 'google_map_screen.dart';
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final FirestoreService firestoreService = FirestoreService();
+  final TextEditingController textController = TextEditingController();
+  File? _image;
+  String? imageUrl;
+  String? imageLocation;
+  bool isUploading = false;
+
+  Future<void> _pickImage(ImageSource source, StateSetter setState) async {
+    final pickedFile = await ImagePicker().pickImage(source: source);
+    if (pickedFile == null) return;
+
+    File imageFile = File(pickedFile.path);
+    await _extractLocationFromImage(imageFile, setState); // Pass setState here
+
+    setState(() => _image = imageFile);
+  }
+
+
+
+  Future<void> _extractLocationFromImage(File imageFile, StateSetter setState) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final data = await readExifFromBytes(bytes);
+
+      if (data.containsKey('GPS GPSLatitude') && data.containsKey('GPS GPSLongitude')) {
+        final latValues = data['GPS GPSLatitude']!.values.toList();
+        final lonValues = data['GPS GPSLongitude']!.values.toList();
+        final latitude = _convertExifGpsToDecimal(latValues, data['GPS GPSLatitudeRef']?.printable);
+        final longitude = _convertExifGpsToDecimal(lonValues, data['GPS GPSLongitudeRef']?.printable);
+
+        setState(() => imageLocation = "$latitude, $longitude");
+      } else {
+        setState(() => imageLocation = null);
+      }
+    } catch (e) {
+      debugPrint("Error extracting location: $e");
+      setState(() => imageLocation = null);
+    }
+  }
+
+
+  double _convertExifGpsToDecimal(List<dynamic> values, String? ref) {
+    if (values.length != 3) return 0.0;
+    double decimal = values[0].toDouble() + (values[1].toDouble() / 60) + (values[2].toDouble() / 3600);
+    return (ref == 'S' || ref == 'W') ? -decimal : decimal;
+  }
+
+  Future<String?> _uploadImage(File image) async {
+    try {
+      setState(() => isUploading = true);
+      final ref = FirebaseStorage.instance.ref().child('images/observations/${DateTime.now().millisecondsSinceEpoch}.jpg');
+      UploadTask uploadTask = ref.putFile(image);
+      TaskSnapshot snapshot = await uploadTask;
+      setState(() => isUploading = false);
+      return await snapshot.ref.getDownloadURL();
+    } catch (e) {
+      debugPrint("Error uploading image: $e");
+      setState(() => isUploading = false);
+      return null;
+    }
+  }
+
+  void _openGoogleMaps(String location) {
+    final latLng = location.split(',');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GoogleMapScreen(
+          latitude: double.parse(latLng[0].trim()),
+          longitude: double.parse(latLng[1].trim()),
+        ),
+      ),
+    );
+  }
+
+  void _openNoteDialog({String? docID, String? existingText, String? existingImageUrl, String? existingLocation}) {
+    textController.text = existingText ?? "";
+    _image = null;
+    imageUrl = existingImageUrl;
+    imageLocation = existingLocation;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, StateSetter setState) { // Correct way to define StateSetter
+            return AlertDialog(
+              title: Text(docID == null ? "Add Observation" : "Edit Observation"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: textController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: "Enter your observation",
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.photo_library),
+                        onPressed: () async {
+                          await _pickImage(ImageSource.gallery, setState);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.camera_alt),
+                        onPressed: () async {
+                          await _pickImage(ImageSource.camera, setState);
+                        },
+                      ),
+
+                    ],
+                  ),
+                  if (_image != null) Image.file(_image!, height: 100),
+                  if (imageUrl != null) Image.network(imageUrl!, height: 100),
+                  if (imageLocation != null)
+                    Text("Location: $imageLocation", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  if (isUploading) const CircularProgressIndicator(),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: textController.text.isNotEmpty && _image != null && imageLocation != null
+                      ? () async {
+                    setState(() => isUploading = true);
+                    String? finalImageUrl = await _uploadImage(_image!);
+                    if (finalImageUrl != null) {
+                      firestoreService.addObservation(
+                        textController.text,
+                        imageLocation ?? "No location",
+                        finalImageUrl,
+                      );
+                    }
+                    setState(() => isUploading = false);
+                    Navigator.pop(context);
+                  }
+                      : null,
+                  child: const Text("Save"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Observations"), backgroundColor: Colors.blue),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openNoteDialog(),
+        child: const Icon(Icons.add),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: firestoreService.getObservationsStream(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return ListView(
+            children: snapshot.data!.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10), // More margin for spacing
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), // Rounded corners
+                elevation: 2, // Adds shadow for better look
+                child: Padding(
+                  padding: const EdgeInsets.all(10), // More padding inside card
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (data['image'] != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10), // Rounded image
+                          child: Image.network(
+                            data['image'],
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      else
+                        const Icon(Icons.image, size: 80, color: Colors.grey), // Placeholder icon if no image
+
+                      const SizedBox(width: 10), // Spacing between image and text
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data['name'] ?? "No Name",
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              data['location'] ?? "No location available",
+                              style: const TextStyle(fontSize: 14, color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(width: 10), // Spacing before buttons
+
+                      Column(
+                        children: [
+                          if (data['location'] != null)
+                            IconButton(
+                              icon: const Icon(Icons.map, color: Colors.blue, size: 30),
+                              onPressed: () {
+                                _openGoogleMaps(data['location']!);
+                              },
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red, size: 30),
+                            onPressed: () => firestoreService.deleteObservation(doc.id),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          );
         },
       ),
     );
