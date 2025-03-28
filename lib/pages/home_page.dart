@@ -585,7 +585,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Observations"), backgroundColor: Colors.blue),
+      appBar: AppBar(title: const Text("Observations")),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openNoteDialog(),
         child: const Icon(Icons.add),
