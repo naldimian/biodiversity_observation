@@ -1,5 +1,8 @@
+import 'package:cubaankedua/auth/auth.dart';
+import 'package:cubaankedua/auth/login_or_register.dart';
 import 'package:cubaankedua/pages/home_page.dart';
 import 'package:cubaankedua/pages/login_page.dart';
+import 'package:cubaankedua/pages/register_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +29,8 @@ class AnimalClassifierApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: LoginPage(),
+      //error missing img
+      home:  AuthPage(),
       theme: lightMode,
       darkTheme: darkMode,
     );
