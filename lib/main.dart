@@ -2,7 +2,10 @@ import 'package:cubaankedua/auth/auth.dart';
 import 'package:cubaankedua/auth/login_or_register.dart';
 import 'package:cubaankedua/pages/home_page.dart';
 import 'package:cubaankedua/pages/login_page.dart';
+import 'package:cubaankedua/pages/main_page.dart';
+import 'package:cubaankedua/pages/profile_page.dart';
 import 'package:cubaankedua/pages/register_page.dart';
+import 'package:cubaankedua/pages/users_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +36,12 @@ class AnimalClassifierApp extends StatelessWidget {
       home:  AuthPage(),
       theme: lightMode,
       darkTheme: darkMode,
+      routes: {
+        '/login_register_page': (context) => const LoginOrRegister(),
+        '/main_page': (context) => const MainPage(),
+        '/profile_page':(context) => ProfilePage(),
+        '/users_page': (context) => const UsersPage(),
+      },
     );
   }
 }
