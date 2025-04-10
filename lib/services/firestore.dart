@@ -1,4 +1,5 @@
-/*import 'package:cloud_firestore/cloud_firestore.dart';
+/* 1ST
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirestoreService{
 
@@ -40,6 +41,7 @@ class FirestoreService{
 */
 
 
+/* 2ND
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirestoreService {
@@ -79,4 +81,40 @@ class FirestoreService {
   Future<void> deleteObservation(String docID) {
     return observations.doc(docID).delete();
   }
+}*/
+
+// each post contains the logged in user, user email and timestamp
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class FirestoreService{
+
+  // current logged in user
+  User? user = FirebaseAuth.instance.currentUser;
+
+  // get collection of posts from firebase
+  final CollectionReference posts =
+      FirebaseFirestore.instance.collection('Posts');
+
+
+  // post a message
+Future<void> addPost (String message){
+  return posts.add({
+    'UserEmail' : user!.email,
+    'PostMessage' : message,
+    'Timestamp' : Timestamp.now(),
+
+  });
+}
+
+  // read posts from database
+Stream<QuerySnapshot> getPostsStream() {
+  final postsStream = FirebaseFirestore.instance
+      .collection('Posts')
+      .orderBy('Timestamp', descending: true)
+      .snapshots();
+
+  return postsStream;
+}
+
 }

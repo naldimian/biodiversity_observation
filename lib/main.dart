@@ -38,7 +38,7 @@ class AnimalClassifierApp extends StatelessWidget {
       darkTheme: darkMode,
       routes: {
         '/login_register_page': (context) => const LoginOrRegister(),
-        '/main_page': (context) => const MainPage(),
+        '/main_page': (context) =>  MainPage(),
         '/profile_page':(context) => ProfilePage(),
         '/users_page': (context) => const UsersPage(),
       },

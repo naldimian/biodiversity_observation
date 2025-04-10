@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cubaankedua/components/my_list_tile.dart';
 import 'package:cubaankedua/helper/helper_functions.dart';
 import 'package:flutter/material.dart';
 
@@ -50,8 +51,6 @@ class UsersPage extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 25),
-
                 //list of users
                 Expanded(
                   child: ListView.builder(
@@ -60,10 +59,14 @@ class UsersPage extends StatelessWidget {
                     itemBuilder: (context, index) {
                       //get individual user
                       final user = users[index];
+
+                      // get data from each user
+                      String username = user['username'];
+                      String email = user['email'];
                   
-                      return ListTile(
-                        title: Text(user['username']),
-                        subtitle: Text(user['email']),
+                      return MyListTile(
+                          title: username,
+                          subTitle: email
                       );
                     },
                   ),

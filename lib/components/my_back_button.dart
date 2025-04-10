@@ -14,6 +14,7 @@ class MyBackButton extends StatelessWidget {
 
         ),
         padding: const EdgeInsets.all(10),
+        margin: EdgeInsets.only(bottom: 15),
         child: Icon(
             Icons.arrow_back,
             color: Theme.of(context).colorScheme.inversePrimary,
