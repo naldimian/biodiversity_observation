@@ -9,7 +9,7 @@ class Classifier {
 
   Future<void> loadModel() async {
     try {
-      _interpreter = await Interpreter.fromAsset('assets/model.tflite');
+      _interpreter = await Interpreter.fromAsset('assets/model_unquant.tflite');
       print("✅ Model loaded successfully!");
     } catch (e) {
       print("❌ Error loading model: $e");

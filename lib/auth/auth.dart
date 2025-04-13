@@ -1,3 +1,4 @@
+import 'package:cubaankedua/animal_id.dart';
 import 'package:cubaankedua/auth/login_or_register.dart';
 import 'package:cubaankedua/backup_homepage.dart';
 import 'package:cubaankedua/pages/main_page.dart';
@@ -15,7 +16,7 @@ class AuthPage extends StatelessWidget {
           builder: (context, snapshot){
             //if user is logged in
             if(snapshot.hasData){
-              return MainPage();
+              return AnimalId(); //main page
             }
 
             //user is not logged in
