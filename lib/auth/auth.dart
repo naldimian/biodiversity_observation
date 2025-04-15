@@ -16,7 +16,7 @@ class AuthPage extends StatelessWidget {
           builder: (context, snapshot){
             //if user is logged in
             if(snapshot.hasData){
-              return AnimalId(); //main page
+              return MainPage(); //main page
             }
 
             //user is not logged in

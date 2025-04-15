@@ -234,6 +234,9 @@ class FirestoreService {
 }
 
 */
+
+// important
+/*
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -265,7 +268,6 @@ class FirestoreService {
     });
   }
 
-  // Stream of observations
   Stream<QuerySnapshot> getObservationsStream() {
     return observations.orderBy('Timestamp', descending: true).snapshots();
   }
@@ -298,4 +300,135 @@ class FirestoreService {
     await observations.doc(docID).delete();
   }
 }
+*/
 
+//previous
+/*
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class FirestoreService {
+  final User? user = FirebaseAuth.instance.currentUser;
+
+  final CollectionReference observations =
+  FirebaseFirestore.instance.collection('observations');
+
+  Future<void> addObservation({
+    required String organismType,
+    required String commonName,
+    required String speciesName,
+    required double latitude,
+    required double longitude,
+    required String imageUrl,
+  }) async {
+    await observations.add({
+      'UserEmail': user?.email ?? 'Unknown',
+      'OrganismType': organismType,
+      'CommonName': commonName,
+      'SpeciesName': speciesName,
+      'Latitude': latitude,
+      'Longitude': longitude,
+      'ImageURL': imageUrl,
+      'Timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Optimized: Fetch only required fields for better performance
+  Stream<QuerySnapshot> getObservationsStream() {
+    return observations
+        .orderBy('Timestamp', descending: true)
+        .limit(5) // Limit number of documents to improve speed
+        .snapshots();
+  }
+
+  Future<void> updateObservation({
+    required String docID,
+    String? organismType,
+    String? commonName,
+    String? speciesName,
+    double? latitude,
+    double? longitude,
+    String? imageUrl,
+  }) {
+    Map<String, dynamic> data = {
+      if (organismType != null) 'OrganismType': organismType,
+      if (commonName != null) 'CommonName': commonName,
+      if (speciesName != null) 'SpeciesName': speciesName,
+      if (latitude != null) 'Latitude': latitude,
+      if (longitude != null) 'Longitude': longitude,
+      if (imageUrl != null) 'ImageURL': imageUrl,
+      'Timestamp': FieldValue.serverTimestamp(),
+    };
+
+    return observations.doc(docID).update(data);
+  }
+
+  Future<void> deleteObservation(String docID) async {
+    await observations.doc(docID).delete();
+  }
+}
+*/
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class FirestoreService {
+  final User? user = FirebaseAuth.instance.currentUser;
+
+  final CollectionReference observations =
+  FirebaseFirestore.instance.collection('observations');
+
+  Future<void> addObservation({
+    required String organismType,
+    required String commonName,
+    required String speciesName,
+    required double latitude,
+    required double longitude,
+    required String imageUrl,
+  }) async {
+    await observations.add({
+      'UserEmail': user?.email ?? 'Unknown',
+      'OrganismType': organismType,
+      'CommonName': commonName,
+      'SpeciesName': speciesName,
+      'Latitude': latitude,
+      'Longitude': longitude,
+      'ImageURL': imageUrl,
+      'Timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Optimized stream by filtering OrganismType
+  Stream<QuerySnapshot> getObservationsByType(String organismType) {
+    return observations
+        .where('OrganismType', isEqualTo: organismType)
+        .orderBy('Timestamp', descending: true)
+        .limit(5)
+        .snapshots();
+  }
+
+  Future<void> updateObservation({
+    required String docID,
+    String? organismType,
+    String? commonName,
+    String? speciesName,
+    double? latitude,
+    double? longitude,
+    String? imageUrl,
+  }) {
+    Map<String, dynamic> data = {
+      if (organismType != null) 'OrganismType': organismType,
+      if (commonName != null) 'CommonName': commonName,
+      if (speciesName != null) 'SpeciesName': speciesName,
+      if (latitude != null) 'Latitude': latitude,
+      if (longitude != null) 'Longitude': longitude,
+      if (imageUrl != null) 'ImageURL': imageUrl,
+      'Timestamp': FieldValue.serverTimestamp(),
+    };
+
+    return observations.doc(docID).update(data);
+  }
+
+  Future<void> deleteObservation(String docID) async {
+    await observations.doc(docID).delete();
+  }
+}
