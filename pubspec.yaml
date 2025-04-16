@@ -50,6 +50,7 @@ dependencies:
   intl: ^0.20.2
   timeago: ^3.2.2
   pie_chart: ^5.4.0
+  font_awesome_flutter: ^10.8.0
 
 dev_dependencies:
   flutter_test:

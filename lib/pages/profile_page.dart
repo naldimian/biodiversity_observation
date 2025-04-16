@@ -283,9 +283,11 @@ class ProfilePage extends StatelessWidget {
   }
 }
 */
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:pie_chart/pie_chart.dart';
 import '../components/my_back_button.dart';
 
@@ -406,11 +408,15 @@ class ProfilePage extends StatelessWidget {
 
                 const SizedBox(height: 25),
 
-                // Username with Rank Name
+                // Username with Rank Name and Star Icon colored according to the rank
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star, color: Colors.white, size: 24),
+                    Icon(
+                      FontAwesomeIcons.crown,
+                      color: getIconColor(rank),
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       user['username'] ?? 'Unknown User',
@@ -419,16 +425,32 @@ class ProfilePage extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '($rank)',
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // Rank name placed under the username with border around it
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: getRankColor(rank), // Border color according to rank
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      rank,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: getRankColor(rank),
                       ),
                     ),
-                  ],
+                  ),
                 ),
 
                 const SizedBox(height: 8),
@@ -475,8 +497,6 @@ class ProfilePage extends StatelessWidget {
                             colorList: [
                               Colors.blue,
                               Colors.red,
-                              Colors.orange,
-                              Colors.purple
                             ],
                           ),
                           const SizedBox(height: 10),
