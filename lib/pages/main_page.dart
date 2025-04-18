@@ -1416,6 +1416,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 }
 */
 
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -1434,6 +1435,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 // ADD
 import 'package:cubaankedua/classifier.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -1641,6 +1643,17 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     });
   }
 
+  void _openInGoogleMaps(double lat, double lon) async {
+    final url = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lon");
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      showErrorDialog("Error", "❌ Could not open Google Maps.");
+    }
+  }
+
+
   void showUploadForm() {
     showModalBottomSheet(
       context: context,
@@ -1788,8 +1801,36 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                                     ? "Location: $latitude, $longitude"
                                     : "Location: Not available",
                               ),
-                              Text("$formattedTime"
-                              ),
+                              Text("$formattedTime"),
+                              const SizedBox(height: 25),
+                              if (latitude != null && longitude != null)
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    foregroundColor: Theme.of(context).colorScheme.inversePrimary, // text and icon color
+                                    backgroundColor: Theme.of(context).colorScheme.primary, // subtle background
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                      color: Colors.red,
+                                      Icons.location_on
+                                  ),
+                                  label: const Text(
+                                    "Open in Maps",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    // TODO: Replace with your custom action
+                                    _openInGoogleMaps(latitude, longitude);
+                                  },
+                                ),
+
+
                             ],
                           ),
                         ),
@@ -1799,6 +1840,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                 ),
               ),
             );
+
           },
         );
 

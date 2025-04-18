@@ -505,7 +505,9 @@ class ProfilePage extends StatelessWidget {
                             runSpacing: 5,
                             children: counts.entries.map((entry) {
                               return Chip(
-                                label: Text("${entry.key} (${entry.value.toInt()})"),
+                                label: Text(
+                                    "${entry.key} (${entry.value.toInt()})"
+                                ),
                                 backgroundColor: Theme.of(context).colorScheme.primary,
                               );
                             }).toList(),
