@@ -1416,26 +1416,19 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 }
 */
 
-
-import 'package:cached_network_image/cached_network_image.dart';
+/*
+import 'package:exif/exif.dart' as exifdart;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:exif/exif.dart';
 import 'package:cubaankedua/components/my_drawer.dart';
 import 'package:cubaankedua/services/firestore.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
-import 'package:timeago/timeago.dart' as timeago;
-
-
-
-
-// ADD
 import 'package:cubaankedua/classifier.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cubaankedua/components/observation_card.dart';
+
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -1503,74 +1496,81 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     final bytes = await picked.readAsBytes();
     final tags = await readExifFromBytes(bytes);
 
-    try {
-      if (tags.containsKey('GPS GPSLatitude') &&
-          tags.containsKey('GPS GPSLatitudeRef') &&
-          tags.containsKey('GPS GPSLongitude') &&
-          tags.containsKey('GPS GPSLongitudeRef')) {
-        final latValues = _extractDMS(tags['GPS GPSLatitude']);
-        final lonValues = _extractDMS(tags['GPS GPSLongitude']);
-        final latRef = tags['GPS GPSLatitudeRef']!.printable;
-        final lonRef = tags['GPS GPSLongitudeRef']!.printable;
+    print("EXIF Tags: $tags"); // Debug print to check if EXIF is being read
 
-        double lat = _convertToDecimal(latValues, latRef);
-        double lon = _convertToDecimal(lonValues, lonRef);
+    if (tags.containsKey('GPS GPSLatitude') &&
+        tags.containsKey('GPS GPSLatitudeRef') &&
+        tags.containsKey('GPS GPSLongitude') &&
+        tags.containsKey('GPS GPSLongitudeRef')) {
 
-        setState(() {
-          selectedImage = File(picked.path);
-          latitude = lat;
-          longitude = lon;
-        });
+      final latValues = _extractDMS(tags['GPS GPSLatitude']);
+      final lonValues = _extractDMS(tags['GPS GPSLongitude']);
+      final latRef = tags['GPS GPSLatitudeRef']!.printable;
+      final lonRef = tags['GPS GPSLongitudeRef']!.printable;
 
-        // ADD: Only classify if Mammal is selected
-        if (selectedOrganismType == 'Mammal') {
-          final result = await _classifier.classifyImage(File(picked.path));
-          setState(() {
-            _classificationResult = result;
-            speciesNameController.text = result;
-          });
+      double lat = _convertToDecimal(latValues, latRef);
+      double lon = _convertToDecimal(lonValues, lonRef);
 
-          showErrorDialog("Species Identified", "🧠 Predicted Species: $result");
-        }
-
-        showErrorDialog("Location Found", "📍 Location: $lat, $lon");
-      } else {
-        setState(() {
-          selectedImage = null;
-          latitude = null;
-          longitude = null;
-        });
-        showErrorDialog("Missing Location Info", "❌ This image does not contain GPS location metadata. Please choose another image.");
+      // If GPS is valid, update the state
+      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        showErrorDialog("Invalid Location", "⚠️ Extracted coordinates are out of valid range.");
+        return;
       }
-    } catch (e) {
-      showErrorDialog("Error", "⚠️ Failed to read image metadata.\n\nDetails: $e");
+
+      setState(() {
+        selectedImage = File(picked.path);
+        latitude = lat;
+        longitude = lon;
+      });
+
+      showErrorDialog("Location Found", "📍 Location: $lat, $lon");
+    } else {
+      showErrorDialog("Missing Location Info", "❌ This image does not contain GPS location metadata.");
     }
   }
 
+  Future<void> checkExif(String imagePath) async {
+    final bytes = await File(imagePath).readAsBytes();
+    final data = await exifdart.readExifFromBytes(bytes);
+
+    print("GPSLatitude: ${data['GPS GPSLatitude']}");
+    print("GPSLongitude: ${data['GPS GPSLongitude']}");
+  }
+
+
+
+
+// Replace the existing _extractDMS function with this one:
   List<double> _extractDMS(IfdTag? tag) {
-    if (tag == null) throw const FormatException("GPS tag is null.");
-    try {
-      final raw = tag.printable;
-      final parts = raw.split(',').map((e) => e.trim());
-
-      return parts.map<double>((part) {
-        if (part.contains('/')) {
-          final nums = part.split('/');
-          final num = double.tryParse(nums[0]) ?? 0;
-          final denom = double.tryParse(nums[1]) ?? 1;
-          return num / denom;
-        } else {
-          return double.tryParse(part) ?? 0;
-        }
-      }).toList();
-    } catch (e) {
-      throw FormatException("Error converting GPS data: $e");
+    if (tag == null || tag.values.length != 3) {
+      throw const FormatException("Invalid GPS DMS tag.");
     }
+
+    final dmsList = <double>[];
+    for (var value in tag.values.toList()) {
+      final valueStr = value.toString();
+      if (valueStr.contains('/')) {
+        final parts = valueStr.split('/');
+        final numerator = double.tryParse(parts[0]) ?? 0;
+        final denominator = double.tryParse(parts[1]) ?? 1;
+        dmsList.add(numerator / denominator);
+      } else {
+        dmsList.add(double.tryParse(valueStr) ?? 0);
+      }
+    }
+    return dmsList;
   }
 
+
+// And this is your decimal conversion helper (keep as-is or use if needed):
+  double _convertDMSToDecimal(double degrees, double minutes, double seconds) {
+    return degrees + (minutes / 60.0) + (seconds / 3600.0);
+  }
+
+// Convert the DMS values to Decimal Degrees (DD)
   double _convertToDecimal(List<double> dms, String ref) {
     double decimal = dms[0] + (dms[1] / 60.0) + (dms[2] / 3600.0);
-    if (ref == 'S' || ref == 'W') decimal *= -1;
+    if (ref == 'S' || ref == 'W') decimal *= -1;  // Negate for South and West
     return decimal;
   }
 
@@ -1661,8 +1661,11 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       showDragHandle: true,
       builder: (context) => Padding(
         padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20, right: 20, top: 20),
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
         child: SingleChildScrollView(
           child: Column(
             children: [
@@ -1682,7 +1685,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
               ),
               TextField(
                 controller: speciesNameController,
-                readOnly: selectedOrganismType == 'Mammal', // ADD
+                readOnly: selectedOrganismType == 'Mammal',
                 decoration: const InputDecoration(labelText: "Species Name"),
               ),
               const SizedBox(height: 10),
@@ -1698,14 +1701,20 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.file(
                       selectedImage!,
-                      height: 250, // Increased height
-                      width: double.infinity, // Makes it expand horizontally
+                      height: 250,
+                      width: double.infinity,
                       fit: BoxFit.cover,
                     ),
                   ),
                 ),
-
-              const SizedBox(height: 10),
+              if (latitude != null && longitude != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  "📍 Coordinates: $latitude, $longitude",
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+              const SizedBox(height: 20),
               ElevatedButton.icon(
                 icon: const Icon(Icons.upload),
                 label: const Text("Upload"),
@@ -1718,6 +1727,389 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       ),
     );
   }
+
+  Widget buildObservationTab(String type) {
+    return StreamBuilder(
+      stream: firestore.getObservationsByType(type),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final data = snapshot.data!.docs;
+        if (data.isEmpty) return const Center(child: Text("No observations found."));
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: data.length,
+          itemBuilder: (context, index) {
+            final obs = data[index].data() as Map<String, dynamic>;
+            return ObservationCard(data: obs);
+          },
+        );
+      },
+    );
+  }
+
+
+  Future<void> _loadImage(String imageUrl) async {
+    try {
+      await FirebaseStorage.instance.refFromURL(imageUrl).getDownloadURL();
+    } catch (e) {
+      throw Exception("Failed to load image: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: const MyDrawer(),
+      appBar: AppBar(
+        title: const Text("Observations"),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Mammals'),
+            Tab(text: 'Plants'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          buildObservationTab('Mammal'),
+          buildObservationTab('Plant'),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: showUploadForm,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+*/
+
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:exif/exif.dart' as exifdart;
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:exif/exif.dart';
+import 'package:cubaankedua/components/my_drawer.dart';
+import 'package:cubaankedua/services/firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:cubaankedua/classifier.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class MainPage extends StatefulWidget {
+  const MainPage({super.key});
+
+  @override
+  State<MainPage> createState() => _MainPageState();
+}
+
+class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
+  final FirestoreService firestore = FirestoreService();
+  final picker = ImagePicker();
+  File? selectedImage;
+  double? latitude;
+  double? longitude;
+
+  String? selectedOrganismType;
+  final TextEditingController commonNameController = TextEditingController();
+  final TextEditingController speciesNameController = TextEditingController();
+  bool isUploading = false;
+
+  late TabController _tabController;
+
+  // ADD: classifier instance and classification result
+  final Classifier _classifier = Classifier();
+  String _classificationResult = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+
+    // INIT: Load ML model
+    _classifier.loadModel();
+  }
+
+  @override
+  void dispose() {
+    _classifier.dispose(); // ADD
+    _tabController.dispose();
+    commonNameController.dispose();
+    speciesNameController.dispose();
+    super.dispose();
+  }
+
+  void showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+  Future<void> pickImage() async {
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    final tags = await readExifFromBytes(bytes);
+
+    print("EXIF Tags: $tags"); // Debug print to check if EXIF is being read
+
+    if (tags.containsKey('GPS GPSLatitude') &&
+        tags.containsKey('GPS GPSLatitudeRef') &&
+        tags.containsKey('GPS GPSLongitude') &&
+        tags.containsKey('GPS GPSLongitudeRef')) {
+
+      final latValues = _extractDMS(tags['GPS GPSLatitude']);
+      final lonValues = _extractDMS(tags['GPS GPSLongitude']);
+      final latRef = tags['GPS GPSLatitudeRef']!.printable;
+      final lonRef = tags['GPS GPSLongitudeRef']!.printable;
+
+      double lat = _convertToDecimal(latValues, latRef);
+      double lon = _convertToDecimal(lonValues, lonRef);
+
+      // If GPS is valid, update the state
+      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        showErrorDialog("Invalid Location", "⚠️ Extracted coordinates are out of valid range.");
+        return;
+      }
+
+      setState(() {
+        selectedImage = File(picked.path);
+        latitude = lat;
+        longitude = lon;
+      });
+
+     // showErrorDialog("Location Found", "📍 Location: $lat, $lon");
+
+      // ADD: Only classify if Mammal is selected
+      if (selectedOrganismType == 'Mammal') {
+        final result = await _classifier.classifyImage(File(picked.path));
+        setState(() {
+          _classificationResult = result;
+          speciesNameController.text = result;
+        });
+
+        //showErrorDialog("Species Identified", "🧠 Predicted Species: $result");
+      }
+
+    } else {
+      showErrorDialog("Missing Location Info", "❌ This image does not contain GPS location metadata.");
+    }
+  }
+
+  Future<void> checkExif(String imagePath) async {
+    final bytes = await File(imagePath).readAsBytes();
+    final data = await exifdart.readExifFromBytes(bytes);
+
+    print("GPSLatitude: ${data['GPS GPSLatitude']}");
+    print("GPSLongitude: ${data['GPS GPSLongitude']}");
+  }
+
+// Replace the existing _extractDMS function with this one:
+  List<double> _extractDMS(IfdTag? tag) {
+    if (tag == null || tag.values.length != 3) {
+      throw const FormatException("Invalid GPS DMS tag.");
+    }
+
+    final dmsList = <double>[];
+    for (var value in tag.values.toList()) {
+      final valueStr = value.toString();
+      if (valueStr.contains('/')) {
+        final parts = valueStr.split('/');
+        final numerator = double.tryParse(parts[0]) ?? 0;
+        final denominator = double.tryParse(parts[1]) ?? 1;
+        dmsList.add(numerator / denominator);
+      } else {
+        dmsList.add(double.tryParse(valueStr) ?? 0);
+      }
+    }
+    return dmsList;
+  }
+
+// And this is your decimal conversion helper (keep as-is or use if needed):
+  double _convertDMSToDecimal(double degrees, double minutes, double seconds) {
+    return degrees + (minutes / 60.0) + (seconds / 3600.0);
+  }
+
+// Convert the DMS values to Decimal Degrees (DD)
+  double _convertToDecimal(List<double> dms, String ref) {
+    double decimal = dms[0] + (dms[1] / 60.0) + (dms[2] / 3600.0);
+    if (ref == 'S' || ref == 'W') decimal *= -1;  // Negate for South and West
+    return decimal;
+  }
+
+
+  Future<void> uploadObservation() async {
+    if (selectedImage == null ||
+        selectedOrganismType == null ||
+        commonNameController.text.isEmpty ||
+        speciesNameController.text.isEmpty ||
+        latitude == null || longitude == null) {
+      showErrorDialog("Incomplete Fields", "⚠️ Please complete all fields and select an image with GPS metadata.");
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Row(
+            children: const [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text("Uploading...", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      },
+    );
+
+    setState(() => isUploading = true);
+    try {
+      final fileName = DateTime.now().millisecondsSinceEpoch.toString();
+      final ref = FirebaseStorage.instance.ref().child('uploads/$fileName.jpg');
+      final uploadTask = ref.putFile(selectedImage!);
+      final snapshot = await uploadTask.whenComplete(() => null);
+      final imageUrl = await snapshot.ref.getDownloadURL();
+
+      await firestore.addObservation(
+        organismType: selectedOrganismType!,
+        commonName: commonNameController.text.trim(),
+        speciesName: speciesNameController.text.trim(),
+        latitude: latitude!,
+        longitude: longitude!,
+        imageUrl: imageUrl,
+      );
+
+      if (mounted) {
+        resetForm();
+        Navigator.pop(context);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      Navigator.pop(context);
+      showErrorDialog("Upload Failed", "❌ Upload failed. Please try again.\n\nDetails: $e");
+    }
+
+    setState(() => isUploading = false);
+  }
+
+  void resetForm() {
+    setState(() {
+      selectedOrganismType = null;
+      commonNameController.clear();
+      speciesNameController.clear();
+      selectedImage = null;
+      latitude = null;
+      longitude = null;
+      _classificationResult = "";
+    });
+  }
+
+  void _openInGoogleMaps(double lat, double lon) async {
+    final url = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lon");
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      showErrorDialog("Error", "❌ Could not open Google Maps.");
+    }
+  }
+
+
+  void showUploadForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const Text("New Observation", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                value: selectedOrganismType,
+                decoration: const InputDecoration(labelText: "Organism Type"),
+                items: ['Mammal', 'Plant']
+                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                    .toList(),
+                onChanged: (val) => setState(() => selectedOrganismType = val),
+              ),
+              TextField(
+                controller: commonNameController,
+                decoration: const InputDecoration(labelText: "Common Name"),
+              ),
+              TextField(
+                controller: speciesNameController,
+                readOnly: selectedOrganismType == 'Mammal',
+                decoration: const InputDecoration(labelText: "Species Name"),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.image),
+                label: const Text("Select Image"),
+                onPressed: pickImage,
+              ),
+              if (selectedImage != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      selectedImage!,
+                      height: 250,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              if (latitude != null && longitude != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  "📍 $latitude, $longitude",
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.upload),
+                label: const Text("Upload"),
+                onPressed: isUploading ? null : uploadObservation,
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget buildObservationTab(String type) {
     return StreamBuilder(
@@ -1753,14 +2145,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                 formattedTime = timeago.format(uploadDate);
               }
             }
-
-
-            // tbc
-            /*
-            final formattedTime = timestamp != null
-                ? DateFormat('yyyy-MM-dd – HH:mm').format(timestamp.toDate())
-                : 'Unknown Time';
-            */
 
             return Card(
               margin: const EdgeInsets.only(bottom: 16),
