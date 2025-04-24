@@ -1792,6 +1792,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:exif/exif.dart' as exifdart;
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -1821,6 +1822,8 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   String? selectedOrganismType;
   final TextEditingController commonNameController = TextEditingController();
   final TextEditingController speciesNameController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+
   bool isUploading = false;
 
   late TabController _tabController;
@@ -1910,7 +1913,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       }
 
     } else {
-      showErrorDialog("Missing Location Info", "❌ This image does not contain GPS location metadata.");
+      showErrorDialog("Missing Location Info", "This image does not contain GPS location metadata.");
     }
   }
 
@@ -2048,72 +2051,138 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           right: 20,
           top: 20,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const Text("New Observation", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                value: selectedOrganismType,
-                decoration: const InputDecoration(labelText: "Organism Type"),
-                items: ['Mammal', 'Plant']
-                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                    .toList(),
-                onChanged: (val) => setState(() => selectedOrganismType = val),
-              ),
-              TextField(
-                controller: commonNameController,
-                decoration: const InputDecoration(labelText: "Common Name"),
-              ),
-              TextField(
-                controller: speciesNameController,
-                readOnly: selectedOrganismType == 'Mammal',
-                decoration: const InputDecoration(labelText: "Species Name"),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.image),
-                label: const Text("Select Image"),
-                onPressed: pickImage,
-              ),
-              if (selectedImage != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      selectedImage!,
-                      height: 250,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+        child: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "New Observation",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext dialogContext) {
+                            return AlertDialog(
+                              title: const Text("Discard Observation?"),
+                              content: const Text("Are you sure you want to discard this observation?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(dialogContext), // Close dialog only
+                                  child: const Text("No"),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    resetForm();
+                                    Navigator.pop(dialogContext); // Close dialog
+                                    Navigator.pop(context);       // Close bottom sheet
+                                  },
+                                  child: const Text("Yes"),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: selectedOrganismType,
+                  decoration: const InputDecoration(labelText: "Organism Type"),
+                  items: ['Mammal', 'Plant']
+                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                      .toList(),
+                  onChanged: (val) {
+                    setModalState(() {
+                      selectedOrganismType = val;
+                    });
+                  },
+                ),
+                TextField(
+                  controller: commonNameController,
+                  decoration: const InputDecoration(labelText: "Common Name"),
+                ),
+                TextField(
+                  controller: speciesNameController,
+                  readOnly: selectedOrganismType == 'Mammal',
+                  decoration: const InputDecoration(labelText: "Species Name"),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.image),
+                  label: const Text("Select Image"),
+                  onPressed: () async {
+                    await pickImage();
+                    setModalState(() {}); // Refresh form if new image selected
+                  },
+                ),
+                if (selectedImage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        selectedImage!,
+                        height: 250,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
+                if (latitude != null && longitude != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    "📍 $latitude, $longitude",
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.upload),
+                  label: const Text("Upload"),
+                  onPressed: isUploading ? null : uploadObservation,
                 ),
-              if (latitude != null && longitude != null) ...[
                 const SizedBox(height: 10),
-                Text(
-                  "📍 $latitude, $longitude",
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
               ],
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.upload),
-                label: const Text("Upload"),
-                onPressed: isUploading ? null : uploadObservation,
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
+  String? locationName;
+
+  void getLocationName(double latitude, double longitude) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
+      if (placemarks.isNotEmpty) {
+        final placemark = placemarks.first;
+        locationName = "${placemark.locality}, ${placemark.administrativeArea}";
+        setState(() {}); // to trigger rebuild
+      }
+    } catch (e) {
+      print("Error getting location name: $e");
+      locationName = "Unknown location";
+      setState(() {});
+    }
+  }
+
+
+
+
 
   Widget buildObservationTab(String type) {
-    return StreamBuilder(
-      stream: firestore.getObservationsByType(type),
+    return StreamBuilder<QuerySnapshot>(
+      stream: firestore.getObservationsByType(type, _searchController.text),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
@@ -2165,11 +2234,12 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                           borderRadius: BorderRadius.circular(8),
                           child: CachedNetworkImage(
                             imageUrl: imageUrl,
-                            height: 150,
-                            width: 150,
+                            maxHeightDiskCache: 200,  // Cache smaller version
+                            maxWidthDiskCache: 200,
+                            height: 170,
+                            width: 170,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) =>
-                            const Center(child: CircularProgressIndicator()),
+                            placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                             errorWidget: (context, url, error) => const Icon(Icons.error),
                           ),
                         ),
@@ -2180,13 +2250,22 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                             children: [
                               Text("${obs['OrganismType']}"),
                               Text("${obs['UserEmail']}"),
-                              Text(
-                                latitude != null && longitude != null
-                                    ? "Location: $latitude, $longitude"
-                                    : "Location: Not available",
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on, size: 16.0, color: Colors.red[700]),
+                                  SizedBox(width: 4.0),
+                                  Flexible(
+                                    child: Text(
+                                      (latitude != null && longitude != null)
+                                          ? "${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}"
+                                          : "Location: Not available",
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                               Text("$formattedTime"),
-                              const SizedBox(height: 25),
+                              const SizedBox(height: 30),
                               if (latitude != null && longitude != null)
                                 TextButton.icon(
                                   style: TextButton.styleFrom(
@@ -2213,8 +2292,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                                     _openInGoogleMaps(latitude, longitude);
                                   },
                                 ),
-
-
                             ],
                           ),
                         ),
@@ -2224,13 +2301,47 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                 ),
               ),
             );
-
           },
         );
-
       },
     );
   }
+
+
+
+
+  Future<void> _showSearchDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Search by Species"),
+          content: TextField(
+            controller: _searchController,
+            decoration: const InputDecoration(hintText: 'Enter species name'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  // Trigger a rebuild after updating the search
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Search'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   Future<void> _loadImage(String imageUrl) async {
     try {
@@ -2246,6 +2357,14 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       drawer: const MyDrawer(),
       appBar: AppBar(
         title: const Text("Observations"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () async {
+              await _showSearchDialog(); // Show a dialog to enter search query
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -2254,6 +2373,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           ],
         ),
       ),
+
       body: TabBarView(
         controller: _tabController,
         children: [

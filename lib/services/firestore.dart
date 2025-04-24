@@ -744,6 +744,7 @@ class FirestoreService {
     return observations.doc(docID).update(data);
   }
 
+  /*
   Stream<QuerySnapshot> getObservationsByType(String organismType) {
     return observations
         .where('OrganismType', isEqualTo: organismType)
@@ -751,6 +752,21 @@ class FirestoreService {
         .limit(20)
         .snapshots();
   }
+*/
+
+  Stream<QuerySnapshot> getObservationsByType(String type, String searchText) {
+    final search = searchText.isEmpty ? "" : searchText;
+    return FirebaseFirestore.instance
+        .collection('observations')
+        .where('OrganismType', isEqualTo: type)
+        .where('SpeciesName', isGreaterThanOrEqualTo: search)
+        .where('SpeciesName', isLessThanOrEqualTo: search + '\uf8ff')
+        .orderBy('Timestamp', descending: true)
+        .limit(5)
+        .snapshots();
+  }
+
+
 
 
   Future<void> deleteObservation(String docID) async {
