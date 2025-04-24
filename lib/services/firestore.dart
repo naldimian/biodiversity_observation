@@ -791,7 +791,7 @@ class FirestoreService {
     } else if (observationCount >= 10) {
       rank = 'Bronze';
     } else {
-      rank = 'Newcomer';
+      rank = 'Newbie';
     }
 
     // Update the rank in Firestore

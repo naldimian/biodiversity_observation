@@ -290,6 +290,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:pie_chart/pie_chart.dart';
 import '../components/my_back_button.dart';
+import '../components/rank_info_button.dart';
 
 class ProfilePage extends StatelessWidget {
   ProfilePage({super.key});
@@ -390,10 +391,17 @@ class ProfilePage extends StatelessWidget {
             child: Column(
               children: [
                 const SizedBox(height: 50),
-                const Padding(
-                  padding: EdgeInsets.only(left: 25),
-                  child: Row(children: [MyBackButton()]),
+                 Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 25),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const MyBackButton(),
+                      buildRankInfoButton(context), // Info button added here
+                    ],
+                  ),
                 ),
+
                 const SizedBox(height: 25),
 
                 // Profile Picture with color based on rank

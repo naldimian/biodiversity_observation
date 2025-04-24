@@ -2044,138 +2044,177 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 20,
-          right: 20,
-          top: 20,
-        ),
-        child: StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      backgroundColor: Theme.of(context).dialogBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (_, scrollController) => SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: StatefulBuilder(
+                builder: (context, setModalState) => Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      "New Observation",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext dialogContext) {
-                            return AlertDialog(
-                              title: const Text("Discard Observation?"),
-                              content: const Text("Are you sure you want to discard this observation?"),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(dialogContext), // Close dialog only
-                                  child: const Text("No"),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    resetForm();
-                                    Navigator.pop(dialogContext); // Close dialog
-                                    Navigator.pop(context);       // Close bottom sheet
-                                  },
-                                  child: const Text("Yes"),
-                                ),
-                              ],
+                    /// Title and Close Button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "New Observation",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                title: const Text("Discard Observation?"),
+                                content: const Text("Are you sure you want to discard this observation?"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialogContext),
+                                    child: const Text("No"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      resetForm();
+                                      Navigator.pop(dialogContext);
+                                      Navigator.pop(context);
+                                    },
+                                    child: const Text("Yes"),
+                                  ),
+                                ],
+                              ),
                             );
                           },
-                        );
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    /// Dropdown for Organism
+                    DropdownButtonFormField<String>(
+                      value: selectedOrganismType,
+                      decoration: const InputDecoration(
+                        labelText: "Organism Type",
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                      items: ['Mammal', 'Plant']
+                          .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                          .toList(),
+                      onChanged: (val) {
+                        setModalState(() {
+                          selectedOrganismType = val;
+                        });
                       },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: selectedOrganismType,
-                  decoration: const InputDecoration(labelText: "Organism Type"),
-                  items: ['Mammal', 'Plant']
-                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (val) {
-                    setModalState(() {
-                      selectedOrganismType = val;
-                    });
-                  },
-                ),
-                TextField(
-                  controller: commonNameController,
-                  decoration: const InputDecoration(labelText: "Common Name"),
-                ),
-                TextField(
-                  controller: speciesNameController,
-                  readOnly: selectedOrganismType == 'Mammal',
-                  decoration: const InputDecoration(labelText: "Species Name"),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.image),
-                  label: const Text("Select Image"),
-                  onPressed: () async {
-                    await pickImage();
-                    setModalState(() {}); // Refresh form if new image selected
-                  },
-                ),
-                if (selectedImage != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        selectedImage!,
-                        height: 250,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+
+                    const SizedBox(height: 16),
+
+                    /// Common Name
+                    TextField(
+                      controller: commonNameController,
+                      decoration: const InputDecoration(
+                        labelText: "Common Name",
+                        prefixIcon: Icon(Icons.label),
                       ),
                     ),
-                  ),
-                if (latitude != null && longitude != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    "📍 $latitude, $longitude",
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.upload),
-                  label: const Text("Upload"),
-                  onPressed: isUploading ? null : uploadObservation,
+
+                    const SizedBox(height: 16),
+
+                    /// Species Name
+                    TextField(
+                      controller: speciesNameController,
+                      readOnly: selectedOrganismType == 'Mammal',
+                      decoration: InputDecoration(
+                        labelText: "Species Name",
+                        prefixIcon: const Icon(Icons.pets),
+                        suffixIcon: selectedOrganismType == 'Mammal'
+                            ? const Tooltip(message: "Auto-classified", child: Icon(Icons.lock))
+                            : null,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    /// Select Image
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.image),
+                      label: const Text("Select Image"),
+                      onPressed: () async {
+                        await pickImage();
+                        setModalState(() {});
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+
+                    /// Image Preview
+                    if (selectedImage != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(
+                            selectedImage!,
+                            height: 250,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+
+                    /// Location Info
+                    if (latitude != null && longitude != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          "📍 $latitude, $longitude",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 20),
+
+                    /// Upload Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.upload),
+                        label: const Text("Upload Observation"),
+                        onPressed: isUploading ? null : uploadObservation,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+                  ],
                 ),
-                const SizedBox(height: 10),
-              ],
-            );
-          },
-        ),
-      ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
-
-  String? locationName;
-
-  void getLocationName(double latitude, double longitude) async {
-    try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
-      if (placemarks.isNotEmpty) {
-        final placemark = placemarks.first;
-        locationName = "${placemark.locality}, ${placemark.administrativeArea}";
-        setState(() {}); // to trigger rebuild
-      }
-    } catch (e) {
-      print("Error getting location name: $e");
-      locationName = "Unknown location";
-      setState(() {});
-    }
-  }
-
 
 
 
