@@ -1792,6 +1792,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:exif/exif.dart' as exifdart;
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1823,6 +1824,13 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   final TextEditingController commonNameController = TextEditingController();
   final TextEditingController speciesNameController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  bool _isSearchCollapsed = false;
+  ScrollController _scrollController = ScrollController();
+  late ScrollController _mammalScrollController;
+  late ScrollController _plantScrollController;
+
+
+
 
   bool isUploading = false;
 
@@ -1833,9 +1841,22 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   String _classificationResult = "";
 
   @override
+  @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // Updates the toggle state
+    });
+
+    _scrollController = ScrollController();
+    _mammalScrollController = ScrollController();
+    _plantScrollController = ScrollController();
+
+    // Safe: Add separate listeners for each
+    _scrollController.addListener(() => _handleScroll(_scrollController));
+    _mammalScrollController.addListener(() => _handleScroll(_mammalScrollController));
+    _plantScrollController.addListener(() => _handleScroll(_plantScrollController));
 
     // INIT: Load ML model
     _classifier.loadModel();
@@ -1843,12 +1864,28 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _classifier.dispose(); // ADD
+    _classifier.dispose();
     _tabController.dispose();
     commonNameController.dispose();
     speciesNameController.dispose();
+    _scrollController.dispose();
+    _mammalScrollController.dispose();
+    _plantScrollController.dispose();
     super.dispose();
   }
+
+// ✅ Now takes a parameter for the controller triggering the scroll
+  void _handleScroll(ScrollController controller) {
+    if (!controller.hasClients) return;
+
+    final direction = controller.position.userScrollDirection;
+    if (direction == ScrollDirection.reverse && !_isSearchCollapsed) {
+      setState(() => _isSearchCollapsed = true);
+    } else if (direction == ScrollDirection.forward && _isSearchCollapsed) {
+      setState(() => _isSearchCollapsed = false);
+    }
+  }
+
 
   void showErrorDialog(String title, String message) {
     showDialog(
@@ -2147,7 +2184,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
 
                     /// Select Image
                     ElevatedButton.icon(
@@ -2180,17 +2217,17 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                     /// Location Info
                     if (latitude != null && longitude != null)
                       Padding(
-                        padding: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.only(top: 1),
                         child: Text(
                           "📍 $latitude, $longitude",
                           style: const TextStyle(
                             fontWeight: FontWeight.w500,
-                            fontSize: 16,
+                            fontSize: 15,
                           ),
                         ),
                       ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
 
                     /// Upload Button
                     SizedBox(
@@ -2220,134 +2257,203 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
 
   Widget buildObservationTab(String type) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: firestore.getObservationsByType(type, _searchController.text),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+    ScrollController controller = (type == 'Mammal')
+        ? _mammalScrollController
+        : _plantScrollController;
 
-        final data = snapshot.data!.docs;
-        if (data.isEmpty) {
-          return const Center(child: Text("No observations found."));
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: data.length,
-          itemBuilder: (context, index) {
-            final obs = data[index];
-            final latitude = obs['Latitude'] as double?;
-            final longitude = obs['Longitude'] as double?;
-            final imageUrl = obs['ImageURL'];
-
-            final timestamp = obs['Timestamp'] as Timestamp?;
-            String formattedTime = 'Unknown time';
-
-            if (timestamp != null) {
-              final uploadDate = timestamp.toDate();
-              final now = DateTime.now();
-              final difference = now.difference(uploadDate);
-
-              if (difference.inHours > 23) {
-                formattedTime = DateFormat('d MMMM yyyy').format(uploadDate); // e.g., 15 April 2025
-              } else {
-                formattedTime = timeago.format(uploadDate);
-              }
-            }
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "${obs['CommonName']} (${obs['SpeciesName']})",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: CachedNetworkImage(
-                            imageUrl: imageUrl,
-                            maxHeightDiskCache: 200,  // Cache smaller version
-                            maxWidthDiskCache: 200,
-                            height: 170,
-                            width: 170,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                            errorWidget: (context, url, error) => const Icon(Icons.error),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("${obs['OrganismType']}"),
-                              Text("${obs['UserEmail']}"),
-                              Row(
-                                children: [
-                                  Icon(Icons.location_on, size: 16.0, color: Colors.red[700]),
-                                  SizedBox(width: 4.0),
-                                  Flexible(
-                                    child: Text(
-                                      (latitude != null && longitude != null)
-                                          ? "${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}"
-                                          : "Location: Not available",
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text("$formattedTime"),
-                              const SizedBox(height: 30),
-                              if (latitude != null && longitude != null)
-                                TextButton.icon(
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    foregroundColor: Theme.of(context).colorScheme.inversePrimary, // text and icon color
-                                    backgroundColor: Theme.of(context).colorScheme.primary, // subtle background
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                      color: Colors.red,
-                                      Icons.location_on
-                                  ),
-                                  label: const Text(
-                                    "Open in Maps",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    // TODO: Replace with your custom action
-                                    _openInGoogleMaps(latitude, longitude);
-                                  },
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+    return Column(
+      children: [
+        // Inline search bar
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          height: _isSearchCollapsed ? 0 : 55, // Adjust height as needed
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _isSearchCollapsed
+              ? null
+              : TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Search by species name...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {});
+                },
+              )
+                  : null,
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surfaceVariant,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
               ),
-            );
-          },
-        );
-      },
+            ),
+          ),
+        ),
+
+
+
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: firestore.getObservationsByType(type, _searchController.text),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final data = snapshot.data!.docs;
+              if (data.isEmpty) {
+                return const Center(child: Text("No observations found."));
+              }
+
+              return RefreshIndicator(
+                onRefresh: () async {
+                  setState(() {}); // For visual refresh
+                },
+                child: ListView.builder(
+                  controller: controller,
+                  //controller: _scrollController,
+                  //padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), // top padding reduced from 16 → 4
+                  itemCount: data.length,
+                  itemBuilder: (context, index) {
+                    final obs = data[index];
+                    final latitude = obs['Latitude'] as double?;
+                    final longitude = obs['Longitude'] as double?;
+                    final imageUrl = obs['ImageURL'];
+                    final timestamp = obs['Timestamp'] as Timestamp?;
+                    String formattedTime = 'Unknown time';
+
+                    if (timestamp != null) {
+                      final uploadDate = timestamp.toDate();
+                      final now = DateTime.now();
+                      final difference = now.difference(uploadDate);
+                      formattedTime = difference.inHours > 23
+                          ? DateFormat('d MMMM yyyy').format(uploadDate)
+                          : timeago.format(uploadDate);
+                    }
+
+                    return Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      color: Theme.of(context).colorScheme.surface,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${obs['CommonName']} (${obs['SpeciesName']})",
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: CachedNetworkImage(
+                                    imageUrl: imageUrl,
+                                    maxHeightDiskCache: 200,
+                                    maxWidthDiskCache: 200,
+                                    height: 170,
+                                    width: 170,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) =>
+                                    const Center(child: CircularProgressIndicator()),
+                                    errorWidget: (context, url, error) =>
+                                    const Icon(Icons.error),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(obs['OrganismType'] ?? '',
+                                          style: Theme.of(context).textTheme.bodyMedium),
+                                      const SizedBox(height: 4),
+                                      Text(obs['UserEmail'] ?? '',
+                                          style: Theme.of(context).textTheme.bodySmall),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.location_on,
+                                              size: 16,
+                                              color: Theme.of(context).colorScheme.primary),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              (latitude != null && longitude != null)
+                                                  ? "${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}"
+                                                  : "Location: Not available",
+                                              style: Theme.of(context).textTheme.bodySmall,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        formattedTime,
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      if (latitude != null && longitude != null)
+                                        TextButton.icon(
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                            foregroundColor:
+                                            Theme.of(context).colorScheme.onPrimary,
+                                            backgroundColor:
+                                            Theme.of(context).colorScheme.primary,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          icon: const Icon(Icons.map, color: Colors.white),
+                                          label: const Text(
+                                            "Open in Maps",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 14,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            _openInGoogleMaps(latitude, longitude);
+                                          },
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
-
-
-
 
   Future<void> _showSearchDialog() async {
     return showDialog<void>(
@@ -2394,32 +2500,43 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const MyDrawer(),
-      appBar: AppBar(
-        title: const Text("Observations"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () async {
-              await _showSearchDialog(); // Show a dialog to enter search query
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Mammals'),
-            Tab(text: 'Plants'),
+        appBar: AppBar(
+          title: const Text("Observations"),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ToggleButtons(
+                isSelected: [
+                  _tabController.index == 0,
+                  _tabController.index == 1,
+                ],
+                onPressed: (int newIndex) {
+                  setState(() {
+                    _tabController.index = newIndex;
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                selectedColor: Colors.white,
+                fillColor: Theme.of(context).colorScheme.primary,
+                color: Theme.of(context).colorScheme.onSurface,
+                constraints: const BoxConstraints(minHeight: 36, minWidth: 80),
+                children: const [
+                  Text('Mammals'),
+                  Text('Plants'),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
 
-      body: TabBarView(
-        controller: _tabController,
+      body: IndexedStack(
+        index: _tabController.index,
         children: [
           buildObservationTab('Mammal'),
           buildObservationTab('Plant'),
         ],
       ),
+
       floatingActionButton: FloatingActionButton(
         onPressed: showUploadForm,
         child: const Icon(Icons.add),
@@ -2427,3 +2544,4 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     );
   }
 }
+

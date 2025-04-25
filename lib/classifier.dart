@@ -154,7 +154,11 @@ class Classifier {
 
     int maxIndex = output[0].indexWhere((element) => element == maxProbability);
 
-    return "${_labels[maxIndex]} (${(maxProbability * 100).toStringAsFixed(2)}%)";
+    //without percentage
+    return "${_labels[maxIndex]}";
+
+    // with percentage
+    //return "${_labels[maxIndex]} (${(maxProbability * 100).toStringAsFixed(2)}%)";
   }
 
   void dispose() {
