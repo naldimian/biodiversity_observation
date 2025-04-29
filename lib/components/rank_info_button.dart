@@ -38,7 +38,7 @@ Widget buildRankInfoButton(BuildContext context) {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: const Text('Rank Explanation'),
+            title: const Text('Rank System'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
