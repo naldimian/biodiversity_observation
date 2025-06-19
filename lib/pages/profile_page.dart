@@ -368,6 +368,12 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
+    //addition
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: FutureBuilder<Map<String, dynamic>>(
@@ -472,7 +478,81 @@ class ProfilePage extends StatelessWidget {
                 const SizedBox(height: 30),
 
                 // Observation Breakdown Card
+
+                // Observation Breakdown Card (Responsive)
                 Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: SizedBox(
+                        // Use ~40% of screen height for consistency
+                        height: MediaQuery.of(context).size.height * 0.4,
+                        width: MediaQuery.of(context).size.width * 0.8,
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Observation Breakdown',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            if (counts.isEmpty) ...[
+                              const Spacer(),
+                              const Text(
+                                'No observations yet.',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontStyle: FontStyle.italic,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const Spacer(),
+                            ] else ...[
+                              Expanded(
+                                child: PieChart(
+                                  dataMap: counts,
+                                  chartRadius: MediaQuery.of(context).size.width / 2.5,
+                                  legendOptions: const LegendOptions(
+                                    showLegends: true,
+                                    legendPosition: LegendPosition.right,
+                                    legendTextStyle: TextStyle(fontSize: 14),
+                                  ),
+                                  chartValuesOptions: const ChartValuesOptions(
+                                    showChartValuesInPercentage: true,
+                                  ),
+                                  colorList: [
+                                    Colors.blue,
+                                    Colors.red,
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 15,
+                                runSpacing: 5,
+                                children: counts.entries.map((entry) {
+                                  return Chip(
+                                    label: Text("${entry.key} (${entry.value.toInt()})"),
+                                    backgroundColor: Theme.of(context).colorScheme.primary,
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                /*Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Card(
                     shape: RoundedRectangleBorder(
@@ -491,7 +571,13 @@ class ProfilePage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          PieChart(
+
+                          counts.isEmpty
+                              ? const Text(
+                            'No observations yet.',
+                            style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+                          )
+                              : PieChart(
                             dataMap: counts,
                             chartRadius: MediaQuery.of(context).size.width / 2.0,
                             legendOptions: const LegendOptions(
@@ -507,8 +593,38 @@ class ProfilePage extends StatelessWidget {
                               Colors.red,
                             ],
                           ),
+
+                          /*PieChart(
+                            dataMap: counts,
+                            chartRadius: MediaQuery.of(context).size.width / 2.0,
+                            legendOptions: const LegendOptions(
+                              showLegends: true,
+                              legendPosition: LegendPosition.right,
+                              legendTextStyle: TextStyle(fontSize: 14),
+                            ),
+                            chartValuesOptions: const ChartValuesOptions(
+                              showChartValuesInPercentage: true,
+                            ),
+                            colorList: [
+                              Colors.blue,
+                              Colors.red,
+                            ],
+                          ),*/
                           const SizedBox(height: 10),
-                          Wrap(
+                          counts.isNotEmpty
+                              ? Wrap(
+                            spacing: 15,
+                            runSpacing: 5,
+                            children: counts.entries.map((entry) {
+                              return Chip(
+                                label: Text("${entry.key} (${entry.value.toInt()})"),
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                              );
+                            }).toList(),
+                          )
+                              : const SizedBox.shrink(),
+
+                          /* Wrap(
                             spacing: 15,
                             runSpacing: 5,
                             children: counts.entries.map((entry) {
@@ -519,13 +635,13 @@ class ProfilePage extends StatelessWidget {
                                 backgroundColor: Theme.of(context).colorScheme.primary,
                               );
                             }).toList(),
-                          ),
+                          ),*/
                         ],
                       ),
                     ),
                   ),
                 ),
-
+*/
                 const SizedBox(height: 30),
               ],
             ),

@@ -9,6 +9,7 @@ import 'package:cubaankedua/pages/users_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'firebase_options.dart';
 import 'animal_id.dart';
 import 'package:cubaankedua/theme/dark_mode.dart';
@@ -19,6 +20,12 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Lock orientation to portrait only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   FlutterError.onError=FirebaseCrashlytics.instance.recordFlutterFatalError;
 
