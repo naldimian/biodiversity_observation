@@ -144,7 +144,7 @@ else{
                   ),
                   const SizedBox(height: 10),
 
-
+/*
                   //forgot password
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -154,7 +154,7 @@ else{
                             color: Theme.of(context).colorScheme.inversePrimary),
                       ),
                     ],
-                  ),
+                  ),*/
                   const SizedBox(height: 25),
 
                   // register button

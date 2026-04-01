@@ -1787,7 +1787,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 }
 */
 
-
+import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:exif/exif.dart' as exifdart;
 import 'dart:io';
@@ -1903,50 +1903,69 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     );
   }
   Future<void> pickImage() async {
+    // --------------------------------------------------------
+    // 🛑 NEW PERMISSION CHECK: Ask Android for Media Location Access
+    // --------------------------------------------------------
+    var status = await Permission.accessMediaLocation.status;
+    if (!status.isGranted) {
+      // Trigger the standard Android "Allow" pop-up
+      status = await Permission.accessMediaLocation.request();
+    }
+
+    // If they explicitly denied it, we can't do the math. Just abort or warn them.
+    if (status.isPermanentlyDenied || status.isDenied) {
+      showErrorDialog(
+          "Permission Required",
+          "Without location permissions, the app cannot map your observations. Please enable it in your phone's Settings."
+      );
+      // We will still let them pick the image, but the coordinates will trigger the 0/0 error catcher!
+    }
+    // --------------------------------------------------------
+
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
 
     final bytes = await picked.readAsBytes();
     final tags = await readExifFromBytes(bytes);
 
-    print("EXIF Tags: $tags"); // Debug print to check if EXIF is being read
-
     if (tags.containsKey('GPS GPSLatitude') &&
         tags.containsKey('GPS GPSLatitudeRef') &&
         tags.containsKey('GPS GPSLongitude') &&
         tags.containsKey('GPS GPSLongitudeRef')) {
 
-      final latValues = _extractDMS(tags['GPS GPSLatitude']);
-      final lonValues = _extractDMS(tags['GPS GPSLongitude']);
-      final latRef = tags['GPS GPSLatitudeRef']!.printable;
-      final lonRef = tags['GPS GPSLongitudeRef']!.printable;
+      try {
+        final latValues = _extractDMS(tags['GPS GPSLatitude']);
+        final lonValues = _extractDMS(tags['GPS GPSLongitude']);
+        final latRef = tags['GPS GPSLatitudeRef']!.printable;
+        final lonRef = tags['GPS GPSLongitudeRef']!.printable;
 
-      double lat = _convertToDecimal(latValues, latRef);
-      double lon = _convertToDecimal(lonValues, lonRef);
+        double lat = _convertToDecimal(latValues, latRef);
+        double lon = _convertToDecimal(lonValues, lonRef);
 
-      // If GPS is valid, update the state
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        showErrorDialog("Invalid Location", "⚠️ Extracted coordinates are out of valid range.");
-        return;
-      }
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+          showErrorDialog("Invalid Location", "⚠️ Extracted coordinates are out of valid range.");
+          return;
+        }
 
-      setState(() {
-        selectedImage = File(picked.path);
-        latitude = lat;
-        longitude = lon;
-      });
-
-     // showErrorDialog("Location Found", "📍 Location: $lat, $lon");
-
-      // ADD: Only classify if Mammal is selected
-      if (selectedOrganismType == 'Mammal') {
-        final result = await _classifier.classifyImage(File(picked.path));
         setState(() {
-          _classificationResult = result;
-          speciesNameController.text = result;
+          selectedImage = File(picked.path);
+          latitude = lat;
+          longitude = lon;
         });
 
-        //showErrorDialog("Species Identified", "🧠 Predicted Species: $result");
+        if (selectedOrganismType == 'Mammal') {
+          final result = await _classifier.classifyImage(File(picked.path));
+          setState(() {
+            _classificationResult = result;
+            speciesNameController.text = result;
+          });
+        }
+
+      } catch (e) {
+        showErrorDialog(
+            "Location Hidden",
+            "Android hid the GPS metadata for privacy. Try taking a new photo directly, or ensure your app has media location permissions."
+        );
       }
 
     } else {
@@ -1962,7 +1981,9 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
     print("GPSLongitude: ${data['GPS GPSLongitude']}");
   }
 
-// Replace the existing _extractDMS function with this one:
+// --------------------------------------------------------
+  // UPDATED DMS EXTRACTOR (Prevents NaN)
+  // --------------------------------------------------------
   List<double> _extractDMS(IfdTag? tag) {
     if (tag == null || tag.values.length != 3) {
       throw const FormatException("Invalid GPS DMS tag.");
@@ -1975,6 +1996,13 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
         final parts = valueStr.split('/');
         final numerator = double.tryParse(parts[0]) ?? 0;
         final denominator = double.tryParse(parts[1]) ?? 1;
+
+        // 👈 THE FIX: If Android redacted the location, denominator is 0.
+        // We throw an exception to prevent calculating NaN.
+        if (denominator == 0) {
+          throw const FormatException("Location redacted by Android (0/0).");
+        }
+
         dmsList.add(numerator / denominator);
       } else {
         dmsList.add(double.tryParse(valueStr) ?? 0);

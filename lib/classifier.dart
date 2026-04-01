@@ -106,6 +106,7 @@ class Classifier {
 }
 */
 
+/* 1.4.24
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:io';
@@ -120,11 +121,11 @@ class Classifier {
   Future<void> loadModel() async {
     try {
       // Load model
-      _interpreter = await Interpreter.fromAsset('assets/model_1906.tflite');
+      _interpreter = await Interpreter.fromAsset('assets/primate_classifier.tflite');
       print("✅ Model loaded successfully!");
 
       // Load labels from label.txt
-      _labels = await _loadLabels('assets/labels_1906.txt');
+      _labels = await _loadLabels('assets/labels.txt');
       print("✅ Labels loaded: $_labels");
     } catch (e) {
       print("❌ Error loading model or labels: $e");
@@ -189,11 +190,132 @@ class Classifier {
 
     double maxProbability = (output[0] as List<double>).reduce((a, b) => a > b ? a : b);
     int maxIndex = output[0].indexWhere((element) => element == maxProbability);
-    return "${_labels[maxIndex]} (${(maxProbability * 100).toStringAsFixed(2)}%)";
-    //return "${_labels[maxIndex]}";
+    //return "${_labels[maxIndex]} (${(maxProbability * 100).toStringAsFixed(2)}%)";
+    return "${_labels[maxIndex]}";
   }
 
   void dispose() {
     _interpreter.close();
+  }
+}
+*/
+
+import 'package:flutter/services.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:image/image.dart' as img;
+import 'package:heif_converter/heif_converter.dart';
+
+class Classifier {
+  late Interpreter _interpreter;
+  List<String> _labels = [];
+  bool _isModelLoaded = false;
+
+  /// Loads the TFLite model and the labels from assets
+  Future<void> loadModel() async {
+    try {
+      _interpreter = await Interpreter.fromAsset('assets/primate_classifier_float32.tflite');
+      _isModelLoaded = true;
+      print("✅ Model loaded successfully!");
+
+      _labels = await _loadLabels('assets/labels.txt');
+      print("✅ Labels loaded: $_labels");
+    } catch (e) {
+      print("❌ Error loading model or labels: $e");
+    }
+  }
+
+  /// Parses the labels text file
+  Future<List<String>> _loadLabels(String path) async {
+    final rawLabels = await rootBundle.loadString(path);
+    return rawLabels.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  }
+
+  /// Converts HEIF/HEIC files to standard JPG format for the image package
+  Future<File> _convertHeifToJpg(File image) async {
+    final tempFile = File('${Directory.systemTemp.path}/temp.jpg');
+    try {
+      await HeifConverter.convert(image.path, output: tempFile.path);
+      return tempFile;
+    } catch (e) {
+      print("❌ Error converting HEIF to JPG: $e");
+      rethrow;
+    }
+  }
+
+  /// Prepares the image for the MobileNetV3 model
+  Future<Float32List> preprocessImage(File image) async {
+    img.Image? imageDecoded;
+
+    // 1. Decode the image
+    if (image.path.endsWith('.heif') || image.path.endsWith('.heic')) {
+      final tempFile = await _convertHeifToJpg(image);
+      imageDecoded = img.decodeImage(tempFile.readAsBytesSync())!;
+    } else {
+      imageDecoded = img.decodeImage(image.readAsBytesSync())!;
+    }
+
+    // 2. Direct Resize (Squish) to 320x320 using Linear Interpolation
+    // This perfectly matches the default Keras training pipeline
+    img.Image resized = img.copyResize(
+        imageDecoded,
+        width: 320,
+        height: 320,
+        interpolation: img.Interpolation.linear
+    );
+
+    // 3. Extract raw pixels (0-255) because MobileNetV3 handles its own scaling
+    List<double> rawPixels = [];
+    for (int y = 0; y < resized.height; y++) {
+      for (int x = 0; x < resized.width; x++) {
+        img.Pixel pixel = resized.getPixel(x, y);
+        rawPixels.add(pixel.r.toDouble());
+        rawPixels.add(pixel.g.toDouble());
+        rawPixels.add(pixel.b.toDouble());
+      }
+    }
+
+    return Float32List.fromList(rawPixels);
+  }
+
+  /// Runs inference on the provided image and returns the predicted label and confidence
+  Future<String> classifyImage(File image) async {
+    if (!_isModelLoaded) {
+      return "❌ Model is not loaded!";
+    }
+
+    try {
+      // 1. Preprocess the image
+      Float32List input = await preprocessImage(image);
+
+      // 2. Reshape to match model input shape: [BatchSize, Height, Width, Channels]
+      var reshapedInput = input.reshape([1, 320, 320, 3]);
+
+      // 3. Prepare the output tensor
+      var output = List.filled(1 * _labels.length, 0.0).reshape([1, _labels.length]);
+
+      // 4. Run the model
+      _interpreter.run(reshapedInput, output);
+
+      // 5. Parse the output probabilities
+      List<double> probabilities = (output[0] as List<dynamic>).cast<double>();
+
+      double maxProbability = probabilities.reduce((a, b) => a > b ? a : b);
+      int maxIndex = probabilities.indexWhere((element) => element == maxProbability);
+
+      // Return formatted string with confidence percentage
+      return "${_labels[maxIndex]} (${(maxProbability * 100).toStringAsFixed(1)}%)";
+
+    } catch (e) {
+      return "❌ Error running the model: $e";
+    }
+  }
+
+  /// Clean up resources when done
+  void dispose() {
+    if (_isModelLoaded) {
+      _interpreter.close();
+    }
   }
 }
