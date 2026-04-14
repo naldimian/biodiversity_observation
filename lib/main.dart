@@ -11,7 +11,6 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'firebase_options.dart';
-import 'animal_id.dart';
 import 'package:cubaankedua/theme/dark_mode.dart';
 import 'package:cubaankedua/theme/light_mode.dart';
 

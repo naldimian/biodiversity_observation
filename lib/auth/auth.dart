@@ -1,6 +1,4 @@
-import 'package:cubaankedua/animal_id.dart';
 import 'package:cubaankedua/auth/login_or_register.dart';
-import 'package:cubaankedua/backup_homepage.dart';
 import 'package:cubaankedua/pages/main_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
