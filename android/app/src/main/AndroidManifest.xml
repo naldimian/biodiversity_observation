@@ -48,8 +48,6 @@
             android:value="true"
             />
 
-
-
     </application>
 
     <!-- 🌟 Add this to allow querying apps that can open URLs -->
