@@ -652,7 +652,122 @@ class _AllObservationsMapPageState extends State<AllObservationsMapPage> {
                     const SizedBox(height: 24),
 
                     // Modern User Info Card
-                    Container(
+                    const SizedBox(height: 24),
+
+                    // -----------------------------------------------------
+                    // NEW: BIODIVERSITY & FIELD DATA SECTION
+                    // -----------------------------------------------------
+                    const Text(
+                      "Field Data",
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+
+                    Row(
+                      children: [
+                        // Validation Badge (AI vs Manual)
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  selectedObservation!['ClassificationMethod'] == 'Auto-Classified'
+                                      ? Icons.auto_awesome
+                                      : Icons.person,
+                                  color: selectedObservation!['ClassificationMethod'] == 'Auto-Classified'
+                                      ? Colors.amber.shade700
+                                      : Colors.blue.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("Verification", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text(
+                                        selectedObservation!['ClassificationMethod'] ?? 'Manual',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+
+                        // Count Badge
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.group, color: Colors.teal),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("Count", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text(
+                                        "${selectedObservation!['Count'] ?? 1} Observed",
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Field Notes (Only show if notes exist)
+                    if (selectedObservation!['Notes'] != null && selectedObservation!['Notes'].toString().isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.notes, size: 16, color: Colors.grey),
+                                SizedBox(width: 6),
+                                Text("Observer Notes", style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              selectedObservation!['Notes'],
+                              style: const TextStyle(fontSize: 15, height: 1.5, fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 32),
+                    /*Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
@@ -695,7 +810,7 @@ class _AllObservationsMapPageState extends State<AllObservationsMapPage> {
                           ),
                         ],
                       ),
-                    ),
+                    ),*/
 
                     const SizedBox(height: 32),
 

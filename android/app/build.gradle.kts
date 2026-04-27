@@ -11,7 +11,8 @@ plugins {
 
 android {
     namespace = "com.example.cubaankedua"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
+    //compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -19,10 +20,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
+    /*
+kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
-
+*/
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.cubaankedua"
@@ -42,6 +44,11 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
         }
     }
 }
